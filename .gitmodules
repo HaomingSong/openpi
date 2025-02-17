@@ -4,3 +4,9 @@
 [submodule "third_party/libero"]
 	path = third_party/libero
 	url = git@github.com:Lifelong-Robot-Learning/LIBERO.git
+[submodule "third_party/bridge_data_robot"]
+	path = third_party/bridge_data_robot
+	url = git@github.com:rail-berkeley/bridge_data_robot.git
+[submodule "third_party/edgeml"]
+	path = third_party/edgeml
+	url = git@github.com:youliangtan/edgeml.git
