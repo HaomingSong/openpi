@@ -1,4 +1,5 @@
 version = 1
+revision = 1
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version < '3.12' and sys_platform == 'darwin'",
@@ -1709,7 +1710,7 @@ wheels = [
 [[package]]
 name = "lerobot"
 version = "0.1.0"
-source = { git = "https://github.com/huggingface/lerobot?rev=6674e368249472c91382eb54bb8501c94c7f0c56#6674e368249472c91382eb54bb8501c94c7f0c56" }
+source = { directory = "lib/lerobot" }
 dependencies = [
     { name = "cmake" },
     { name = "datasets" },
@@ -1729,13 +1730,58 @@ dependencies = [
     { name = "pyav" },
     { name = "pymunk" },
     { name = "rerun-sdk" },
-    { name = "setuptools" },
     { name = "termcolor" },
     { name = "torch" },
     { name = "torchvision" },
     { name = "wandb" },
     { name = "zarr" },
 ]
+
+[package.metadata]
+requires-dist = [
+    { name = "cmake", specifier = ">=3.29.0.1" },
+    { name = "datasets", specifier = ">=2.19.0" },
+    { name = "debugpy", marker = "extra == 'dev'", specifier = ">=1.8.1" },
+    { name = "deepdiff", specifier = ">=7.0.1" },
+    { name = "diffusers", specifier = ">=0.27.2" },
+    { name = "draccus", git = "https://github.com/dlwh/draccus.git" },
+    { name = "dynamixel-sdk", marker = "extra == 'dynamixel'", specifier = ">=3.7.31" },
+    { name = "einops", specifier = ">=0.8.0" },
+    { name = "feetech-servo-sdk", marker = "extra == 'feetech'", specifier = ">=1.0.0" },
+    { name = "flask", specifier = ">=3.0.3" },
+    { name = "gdown", specifier = ">=5.1.0" },
+    { name = "gym-aloha", marker = "extra == 'aloha'", specifier = ">=0.1.1" },
+    { name = "gym-dora", marker = "extra == 'dora'", git = "https://github.com/dora-rs/dora-lerobot.git?subdirectory=gym_dora" },
+    { name = "gym-pusht", marker = "extra == 'pusht'", specifier = ">=0.1.5" },
+    { name = "gym-xarm", marker = "extra == 'xarm'", specifier = ">=0.1.1" },
+    { name = "gymnasium", specifier = "==0.29.1" },
+    { name = "h5py", specifier = ">=3.10.0" },
+    { name = "hello-robot-stretch-body", marker = "sys_platform == 'linux' and extra == 'stretch'", specifier = ">=0.7.27" },
+    { name = "huggingface-hub", extras = ["cli", "hf-transfer"], specifier = ">=0.27.1" },
+    { name = "imagecodecs", marker = "extra == 'umi'", specifier = ">=2024.1.1" },
+    { name = "imageio", extras = ["ffmpeg"], specifier = ">=2.34.0" },
+    { name = "jsonlines", specifier = ">=4.0.0" },
+    { name = "numba", specifier = ">=0.59.0" },
+    { name = "opencv-python", specifier = ">=4.9.0" },
+    { name = "pandas", marker = "extra == 'video-benchmark'", specifier = ">=2.2.2" },
+    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.7.0" },
+    { name = "pyav", specifier = ">=12.0.5" },
+    { name = "pymunk", specifier = ">=6.6.0" },
+    { name = "pynput", marker = "extra == 'dynamixel' or extra == 'feetech' or extra == 'stretch'", specifier = ">=1.7.7" },
+    { name = "pyrealsense2", marker = "(sys_platform != 'darwin' and extra == 'intelrealsense') or (sys_platform != 'darwin' and extra == 'stretch')", specifier = ">=2.55.1.6486" },
+    { name = "pyrender", marker = "sys_platform == 'linux' and extra == 'stretch'", git = "https://github.com/mmatl/pyrender.git" },
+    { name = "pyserial", marker = "extra == 'test'", specifier = ">=3.5" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.1.0" },
+    { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=5.0.0" },
+    { name = "rerun-sdk", specifier = ">=0.21.0" },
+    { name = "scikit-image", marker = "extra == 'video-benchmark'", specifier = ">=0.23.2" },
+    { name = "termcolor", specifier = ">=2.4.0" },
+    { name = "torch", specifier = ">=2.2.1" },
+    { name = "torchvision", specifier = ">=0.21.0" },
+    { name = "wandb", specifier = ">=0.16.3" },
+    { name = "zarr", specifier = ">=2.17.0" },
+]
+provides-extras = ["aloha", "dev", "dora", "dynamixel", "feetech", "intelrealsense", "pusht", "stretch", "test", "umi", "video-benchmark", "xarm"]
 
 [[package]]
 name = "llvmlite"
@@ -2804,7 +2850,7 @@ requires-dist = [
     { name = "imageio", specifier = ">=2.36.1" },
     { name = "jax", extras = ["cuda12"], specifier = "==0.5.0" },
     { name = "jaxtyping", specifier = "==0.2.36" },
-    { name = "lerobot", git = "https://github.com/huggingface/lerobot?rev=6674e368249472c91382eb54bb8501c94c7f0c56" },
+    { name = "lerobot", directory = "lib/lerobot" },
     { name = "ml-collections", specifier = "==1.0.0" },
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "numpydantic", specifier = ">=1.6.6" },
