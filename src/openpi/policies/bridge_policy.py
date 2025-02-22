@@ -12,9 +12,9 @@ def make_bridge_example() -> dict:
     return {
         "observation/state": np.random.rand(7),
         "observation/primary_image": np.random.randint(256, size=(224, 224, 3), dtype=np.uint8),
-        "observation/left_yellow_image": np.random.randint(256, size=(224, 224, 3), dtype=np.uint8),
-        "observation/right_blue_image": np.random.randint(256, size=(224, 224, 3), dtype=np.uint8),
-        "observation/wirst_image": np.random.randint(256, size=(224, 224, 3), dtype=np.uint8),
+        # "observation/left_yellow_image": np.random.randint(256, size=(224, 224, 3), dtype=np.uint8),
+        # "observation/right_blue_image": np.random.randint(256, size=(224, 224, 3), dtype=np.uint8),
+        # "observation/wirst_image": np.random.randint(256, size=(224, 224, 3), dtype=np.uint8),
         "prompt": "do something",
     }
 
@@ -46,22 +46,22 @@ class BridgeInputs(transforms.DataTransformFn):
         # Possibly need to parse images to uint8 (H,W,C) since LeRobot automatically
         # stores as float32 (C,H,W), gets skipped for policy inference
         primary_image = _parse_image(data["observation/primary_image"])
-        left_yellow_image = _parse_image(data["observation/left_yellow_image"])
-        right_blue_image = _parse_image(data["observation/right_blue_image"])
-        wrist_image = _parse_image(data["observation/wrist_image"])
+        # left_yellow_image = _parse_image(data["observation/left_yellow_image"])
+        # right_blue_image = _parse_image(data["observation/right_blue_image"])
+        # wrist_image = _parse_image(data["observation/wrist_image"])
 
         inputs = {
             "state": state,
             "image": {
                 "primary_image": primary_image,
-                "left_yellow_image": left_yellow_image,
-                "right_blue_image": right_blue_image,
-                "wrist_image": wrist_image,
+                # "left_yellow_image": left_yellow_image,
+                # "right_blue_image": right_blue_image,
+                # "wrist_image": wrist_image,
             },
             "image_mask": {
-                "base_0_rgb": np.True_,
-                "left_wrist_0_rgb": np.True_,
-                "right_wrist_0_rgb": np.False_ if mask_padding else np.True_,
+                "primary_image": np.True_,
+                # "left_wrist_0_rgb": np.True_,
+                # "right_wrist_0_rgb": np.False_ if mask_padding else np.True_,
             },
         }
 

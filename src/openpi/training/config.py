@@ -295,6 +295,9 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
 
 @dataclasses.dataclass(frozen=True)
 class LeRobotBridgeDataConfig(DataConfigFactory):
+    # Action keys that will be used to read the action sequence from the dataset.
+    action_sequence_keys: Sequence[str] = ("action",)
+    num_workers=8
     @override
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
         # Make inputs look like they come from the Libero environment
@@ -303,9 +306,9 @@ class LeRobotBridgeDataConfig(DataConfigFactory):
                 _transforms.RepackTransform(
                     {
                         "observation/primary_image": "observation.images.image_0",
-                        "observation/left_yellow_image": "observation.images.image_1",
-                        "observation/right_blue_image": "observation.images.image_2",
-                        "observation/wirst_image": "observation.images.image_3",
+                        # "observation/left_yellow_image": "observation.images.image_1",
+                        # "observation/right_blue_image": "observation.images.image_2",
+                        # "observation/wirst_image": "observation.images.image_3",
                         "observation/state": "observation.state",
                         "actions": "action",
                         "prompt": "prompt",
@@ -329,6 +332,7 @@ class LeRobotBridgeDataConfig(DataConfigFactory):
             repack_transforms=repack_transform,
             data_transforms=data_transforms,
             model_transforms=model_transforms,
+            action_sequence_keys=self.action_sequence_keys,
         )
 
 
@@ -595,10 +599,10 @@ _CONFIGS = [
     # Fine-tuning bridge configs.
     #
     TrainConfig(
-        name="pi0_fast_libero_low_mem_finetune",
+        name="pi0_fast_bridge_low_mem_finetune",
         model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
         data=LeRobotBridgeDataConfig(
-            repo_id="local/libero",
+            repo_id="local/bridge_lerobot",
             base_config=DataConfig(
                 local_files_only=True,  # Set to True for local-only datasets.
                 prompt_from_task=True,
@@ -610,6 +614,24 @@ _CONFIGS = [
             action_dim=7, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
         ).get_freeze_filter(),
         ema_decay=None,
+    ),
+    TrainConfig(
+        name="pi0_fast_bridge_low_mem_finetune_hand",
+        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora", max_token_len=350),
+        data=LeRobotBridgeDataConfig(
+            repo_id="local/bridge_lerobot",
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=30_000,
+        freeze_filter=pi0_fast.Pi0FASTConfig(
+            action_dim=7, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
+        ).get_freeze_filter(),
+        ema_decay=None,
+        # batch_size=64
     ),
     #
     # Debugging configs.
