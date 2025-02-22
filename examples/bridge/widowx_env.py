@@ -70,15 +70,12 @@ def wait_for_obs(widowx_client):
     return obs
 
 
-def convert_obs(obs, im_size, *, flip=False, bgr2rgb=False):
+def convert_obs(obs, im_size, *, flip=False):
     image_obs = (obs["image"].reshape(3, im_size, im_size).transpose(1, 2, 0) * 255).astype(np.uint8)
 
     if flip:
-        image_obs = np.flip(image_obs, axis=0)
-        full_image = np.flip(obs["full_image"], axis=0)
-    if bgr2rgb:
-        image_obs = cv2.cvtColor(image_obs, cv2.COLOR_BGR2RGB)
-        full_image = cv2.cvtColor(full_image, cv2.COLOR_BGR2RGB)
+        image_obs = cv2.flip(image_obs, -1)
+        full_image = cv2.flip(obs["full_image"], -1)
     # add padding to proprio to match training
     proprio = np.concatenate([obs["state"][:6], [0], obs["state"][-1:]])
 
@@ -92,6 +89,8 @@ def convert_obs(obs, im_size, *, flip=False, bgr2rgb=False):
 def null_obs(img_size):
     return {
         "image_primary": np.zeros((img_size, img_size, 3), dtype=np.uint8),
+        "proprio": np.zeros((8,), dtype=np.float64),
+        "full_image": np.zeros((480, 640, 3), dtype=np.uint8),
     }
 
 
@@ -159,7 +158,6 @@ class WidowXGym(gym.Env):
                 raw_obs,
                 self.im_size,
                 flip=self.env_params["camera_topics"][0]["name"] == "/D435/color/image_raw",
-                bgr2rgb=self.env_params["camera_topics"][0]["name"] == "/D435/color/image_raw",
             )
 
         return obs, 0, False, truncated, {}
@@ -176,7 +174,6 @@ class WidowXGym(gym.Env):
             raw_obs,
             self.im_size,
             flip=self.env_params["camera_topics"][0]["name"] == "/D435/color/image_raw",
-            bgr2rgb=self.env_params["camera_topics"][0]["name"] == "/D435/color/image_raw",
         )
 
         return obs, {}

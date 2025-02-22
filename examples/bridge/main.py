@@ -10,6 +10,7 @@ import contextlib
 import dataclasses
 from datetime import datetime
 import pathlib
+import logging
 import signal
 import time
 
@@ -22,6 +23,8 @@ import tyro
 from widowx_env import RHCWrapper
 from widowx_env import WidowXGym
 from widowx_envs.widowx_env_service import WidowXConfigs
+from typing import Tuple
+from openpi_client import websocket_client_policy as _websocket_client_policy
 
 
 @dataclasses.dataclass
@@ -39,10 +42,10 @@ class Args:
     #################################################################################################################
     robot_ip: str = "localhost"  # IP address of the robot
     robot_port: int = 5556  # Port of the robot
-    initial_eep: tuple[float, float, float] = (0.3, 0.0, 0.15)  # Initial position
+    initial_eep: Tuple[float, float, float] = (0.3, 0.0, 0.15)  # Initial position
     blocking: bool = False  # Use the blocking controller
     max_timesteps: int = 120  # Number of timesteps to run
-    default_instruction: str = "Lift the carrot in the plate"  # Default instruction
+    default_instruction: str = "Lift the eggplant in the basket"  # Default instruction
 
     #################################################################################################################
     # Utils
@@ -112,7 +115,7 @@ def eval_bridge(args: Args) -> None:
     if not args.blocking:
         assert STEP_DURATION == 0.2, STEP_DURATION_MESSAGE
     results_df = pd.DataFrame(columns=["success", "duration", "video_filename"])
-    # policy_client = _websocket_client_policy.WebsocketClientPolicy(args.host, args.port)
+    policy_client = _websocket_client_policy.WebsocketClientPolicy(args.host, args.port)
 
     # switch TemporalEnsembleWrapper with RHCWrapper for receding horizon control
     env = RHCWrapper(env, args.action_horizon)
@@ -133,7 +136,7 @@ def eval_bridge(args: Args) -> None:
             range(args.max_timesteps),
             position=0,
             leave=True,
-            ncols=80,
+            ncols=100,
             desc="Rollout steps",
         )
 
@@ -141,29 +144,29 @@ def eval_bridge(args: Args) -> None:
             try:
                 bar.set_description(f"Step {t_step}/{args.max_timesteps}")
                 if args.show_image:
-                    cv2.imshow("img_view", obs["full_image"])
+                    cv2.imshow("img_view", cv2.cvtColor(obs["full_image"], cv2.COLOR_RGB2BGR))
                     cv2.waitKey(1)
 
-                # # Send websocket request to policy server
-                # # TODO: implement the request_data
-                # request_data = {
-                # }
-                # with prevent_keyboard_interrupt():
-                #     # this returns action chunk [10, 7] of 10 end effector pose (6) + gripper position (1)
-                #     forward_pass_time = time.time()
-                #     pred_action_chunk = policy_client.infer(request_data)["actions"]
-                #     assert pred_action_chunk.shape == (10, 7)
-                #     print("request action time: ", time.time() - forward_pass_time)
+                # Send websocket request to policy server
+                # TODO: implement the request_data
+                request_data = {
+                    "observation/primary_image": obs["image_primary"],
+                    "observation/state": obs["proprio"],
+                    "prompt": args.default_instruction,
+                }
+                with prevent_keyboard_interrupt():
+                    # this returns action chunk [10, 7] of 10 end effector pose (6) + gripper position (1)
+                    t1 = time.time()
+                    pred_action_chunk = policy_client.infer(request_data)["actions"].copy()
+                    # assert pred_action_chunk.shape == (10, 7)
+                    request_time = time.time() - t1
 
-                # # clip all dimensions of action to [-1, 1]
-                # pred_action_chunk = np.clip(pred_action_chunk, -1, 1)
-                # # TODO: whether unnorm the action
-
-                pred_action_chunk = np.zeros((10, 7))  # dummy action
                 # perform environment step
                 start_time = time.time()
                 obs, _, _, truncated, infos = env.step(pred_action_chunk)
-                print("step time: ", time.time() - start_time)
+                env_step_time = time.time() - start_time
+
+                bar.set_postfix({"req_time": f"{request_time:.3f}s", "step_time": f"{env_step_time:.3f}s"})
 
                 # recording history images
                 for history_obs in infos["observations"]:
@@ -181,7 +184,7 @@ def eval_bridge(args: Args) -> None:
 
         # saving video
         args.video_save_path.mkdir(parents=True, exist_ok=True)
-        curr_time = datetime.now(tz=datetime.UTC).strftime("%Y_%m_%d_%H:%M:%S")
+        curr_time = datetime.now().strftime("%Y_%m_%d_%H:%M:%S")
         save_path = args.video_save_path / f"video_{curr_time}.mp4"
         video = np.stack(images)
         imageio.mimsave(save_path, video, fps=1.0 / STEP_DURATION * 3)
@@ -223,12 +226,13 @@ def eval_bridge(args: Args) -> None:
 
     # save results
     args.results_save_path.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(tz=datetime.UTC).strftime("%I:%M%p_%B_%d_%Y")
+    timestamp = datetime.now().strftime("%I:%M%p_%B_%d_%Y")
     csv_filename = args.results_save_path / f"eval_{timestamp}.csv"
     results_df.to_csv(csv_filename, index=False)
     print(f"Results saved to {csv_filename}")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     args: Args = tyro.cli(Args)
     eval_bridge(args)

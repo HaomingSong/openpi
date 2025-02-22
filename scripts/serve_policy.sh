@@ -1,0 +1,1 @@
+uv run scripts/serve_policy.py policy:checkpoint --policy.config=pi0_fast_bridge_low_mem_finetune_hand --policy.dir=checkpoints/pi0_fast_bridge_low_mem_finetune_hand/pi0_fast_bridge_low_mem_finetune_hand/4000
