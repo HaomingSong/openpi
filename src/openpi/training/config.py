@@ -295,9 +295,14 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
 
 @dataclasses.dataclass(frozen=True)
 class LeRobotBridgeDataConfig(DataConfigFactory):
+
+    use_quantile_norm: bool = True
+
     # Action keys that will be used to read the action sequence from the dataset.
     action_sequence_keys: Sequence[str] = ("action",)
-    num_workers=8
+
+    prompt_from_task: bool = True
+
     @override
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
         # Make inputs look like they come from the Libero environment
@@ -321,7 +326,7 @@ class LeRobotBridgeDataConfig(DataConfigFactory):
         # Convert images to uint8 numpy arrays, add masks
         data_transforms = _transforms.Group(
             inputs=[bridge_policy.BridgeInputs(action_dim=model_config.action_dim, model_type=model_config.model_type)],
-            outputs=[libero_policy.LiberoOutputs()],
+            outputs=[bridge_policy.BridgeOutputs()],
         )
 
         # Model transforms include things like tokenizing the prompt and action targets
@@ -332,7 +337,9 @@ class LeRobotBridgeDataConfig(DataConfigFactory):
             repack_transforms=repack_transform,
             data_transforms=data_transforms,
             model_transforms=model_transforms,
+            use_quantile_norm=self.use_quantile_norm,
             action_sequence_keys=self.action_sequence_keys,
+            prompt_from_task=self.prompt_from_task,
         )
 
 
@@ -631,6 +638,7 @@ _CONFIGS = [
             action_dim=7, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
         ).get_freeze_filter(),
         ema_decay=None,
+        num_workers=16,
         # batch_size=64
     ),
     #

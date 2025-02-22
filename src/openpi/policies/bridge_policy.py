@@ -2,6 +2,7 @@ import dataclasses
 
 import einops
 import numpy as np
+import torch
 
 from openpi import transforms
 from openpi.models import model as _model
@@ -10,7 +11,7 @@ from openpi.models import model as _model
 def make_bridge_example() -> dict:
     """Creates a random input example for the Libero policy."""
     return {
-        "observation/state": np.random.rand(7),
+        "observation/state": np.random.rand(8),
         "observation/primary_image": np.random.randint(256, size=(224, 224, 3), dtype=np.uint8),
         # "observation/left_yellow_image": np.random.randint(256, size=(224, 224, 3), dtype=np.uint8),
         # "observation/right_blue_image": np.random.randint(256, size=(224, 224, 3), dtype=np.uint8),
@@ -39,8 +40,10 @@ class BridgeInputs(transforms.DataTransformFn):
     def __call__(self, data: dict) -> dict:
         mask_padding = self.model_type == _model.ModelType.PI0  # We don't mask for pi0-FAST.
 
+        # NOTE: for bridge dataset at IPEC-COMMUNITY/bridge_orig_lerobot, the state is 8-dim.
         # Get the state. We are padding from 8 to the model action dim.
-        # For pi0-FAST, we don't pad the state (action_dim = 7, which is < 8, so pad is skipped).
+        # For pi0-FAST, we need to remove the pad in the raw state (action_dim = 7, which is < 8, so pad is skipped).
+        state = torch.concatenate([data["observation/state"][:6], data["observation/state"][-1:]])
         state = transforms.pad_to_dim(data["observation/state"], self.action_dim)
 
         # Possibly need to parse images to uint8 (H,W,C) since LeRobot automatically
@@ -55,13 +58,15 @@ class BridgeInputs(transforms.DataTransformFn):
             "image": {
                 "primary_image": primary_image,
                 # "left_yellow_image": left_yellow_image,
+                "left_yellow_image": np.zeros_like(primary_image),
                 # "right_blue_image": right_blue_image,
+                "right_blue_image": np.zeros_like(primary_image),
                 # "wrist_image": wrist_image,
             },
             "image_mask": {
                 "primary_image": np.True_,
-                # "left_wrist_0_rgb": np.True_,
-                # "right_wrist_0_rgb": np.False_ if mask_padding else np.True_,
+                "left_wrist_0_rgb": np.False_ if mask_padding else np.True_,
+                "right_wrist_0_rgb": np.False_ if mask_padding else np.True_,
             },
         }
 
