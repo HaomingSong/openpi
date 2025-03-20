@@ -2,10 +2,10 @@ import dataclasses
 
 import einops
 import numpy as np
-import torch
 
 from openpi import transforms
 from openpi.models import model as _model
+import torch
 
 
 def make_bridge_example() -> dict:
@@ -42,8 +42,8 @@ class BridgeInputs(transforms.DataTransformFn):
 
         # NOTE: for bridge dataset at IPEC-COMMUNITY/bridge_orig_lerobot, the state is 8-dim.
         # Get the state. We are padding from 8 to the model action dim.
-        # For pi0-FAST, we need to remove the pad in the raw state (action_dim = 7, which is < 8, so pad is skipped).
-        state = torch.concatenate([data["observation/state"][:6], data["observation/state"][-1:]])
+        # state = data["observation/state"][:8]
+        state = torch.zeros(data["observation/state"].shape)
         state = transforms.pad_to_dim(data["observation/state"], self.action_dim)
 
         # Possibly need to parse images to uint8 (H,W,C) since LeRobot automatically
@@ -58,15 +58,15 @@ class BridgeInputs(transforms.DataTransformFn):
             "image": {
                 "primary_image": primary_image,
                 # "left_yellow_image": left_yellow_image,
-                "left_yellow_image": np.zeros_like(primary_image),
+                # "left_yellow_image": np.zeros_like(primary_image),
                 # "right_blue_image": right_blue_image,
-                "right_blue_image": np.zeros_like(primary_image),
+                # "right_blue_image": np.zeros_like(primary_image),
                 # "wrist_image": wrist_image,
             },
             "image_mask": {
                 "primary_image": np.True_,
-                "left_wrist_0_rgb": np.False_ if mask_padding else np.True_,
-                "right_wrist_0_rgb": np.False_ if mask_padding else np.True_,
+                # "left_wrist_0_rgb": np.False_ if mask_padding else np.True_,
+                # "right_wrist_0_rgb": np.False_ if mask_padding else np.True_,
             },
         }
 

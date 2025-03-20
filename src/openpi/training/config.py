@@ -606,8 +606,40 @@ _CONFIGS = [
     # Fine-tuning bridge configs.
     #
     TrainConfig(
-        name="pi0_fast_bridge_low_mem_finetune",
-        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
+        name="pi0_bridge",
+        model=pi0.Pi0Config(),
+        data=LeRobotBridgeDataConfig(
+            repo_id="local/bridge_lerobot",
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_base/params"),
+        num_train_steps=30_000,
+        num_workers=8
+    ),
+    TrainConfig(
+        name="pi0_bridge_low_mem_finetune",
+        model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+        data=LeRobotBridgeDataConfig(
+            repo_id="local/bridge_lerobot",
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_base/params"),
+        num_train_steps=30_000,
+        freeze_filter=pi0.Pi0Config(
+            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+        ).get_freeze_filter(),
+        ema_decay=None,
+        num_workers=8
+    ),
+    TrainConfig(
+        name="pi0_fast_bridge_fft_pt_tokenizer",
+        model=pi0_fast.Pi0FASTConfig(action_dim=7, action_horizon=10, max_token_len=180),
         data=LeRobotBridgeDataConfig(
             repo_id="local/bridge_lerobot",
             base_config=DataConfig(
@@ -617,13 +649,10 @@ _CONFIGS = [
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
         num_train_steps=30_000,
-        freeze_filter=pi0_fast.Pi0FASTConfig(
-            action_dim=7, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
-        ).get_freeze_filter(),
-        ema_decay=None,
+        num_workers=16
     ),
     TrainConfig(
-        name="pi0_fast_bridge_low_mem_finetune_hand",
+        name="pi0_fast_bridge_low_mem_finetune",
         model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora", max_token_len=350),
         data=LeRobotBridgeDataConfig(
             repo_id="local/bridge_lerobot",
@@ -635,11 +664,42 @@ _CONFIGS = [
         weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
         num_train_steps=30_000,
         freeze_filter=pi0_fast.Pi0FASTConfig(
-            action_dim=7, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
+            action_horizon=10, max_token_len=350, paligemma_variant="gemma_2b_lora"
         ).get_freeze_filter(),
         ema_decay=None,
-        num_workers=16,
-        # batch_size=64
+        num_workers=8,
+    ),
+    TrainConfig(
+        name="pi0_fast_bridge_ah5",
+        model=pi0_fast.Pi0FASTConfig(action_horizon=5),
+        data=LeRobotBridgeDataConfig(
+            repo_id="local/bridge_lerobot",
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=30_000,
+        num_workers=0
+    ),
+    TrainConfig(
+        name="pi0_fast_bridge_low_mem_finetune_ah5",
+        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
+        data=LeRobotBridgeDataConfig(
+            repo_id="local/bridge_lerobot",
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=30_000,
+        freeze_filter=pi0_fast.Pi0FASTConfig(
+            action_horizon=5, paligemma_variant="gemma_2b_lora"
+        ).get_freeze_filter(),
+        ema_decay=None,
+        num_workers=0,
     ),
     #
     # Debugging configs.
