@@ -8,7 +8,9 @@ fi
 
 CONFIG_NAME=(
     # pi0_fast_bridge_fft_pt_tokenizer
-    
+    # pi0_fast_bridge_lora_pt_tokenizer
+    # pi0_fast_bridge_pad_lora_pt_tokenizer
+    pi0_fast_bridge_pad_fft_pt_tokenizer
 )
 
 for config in ${CONFIG_NAME[@]}; do
