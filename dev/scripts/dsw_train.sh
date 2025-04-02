@@ -10,7 +10,10 @@ CONFIG_NAME=(
     # pi0_fast_bridge_fft_pt_tokenizer
     # pi0_fast_bridge_lora_pt_tokenizer
     # pi0_fast_bridge_pad_lora_pt_tokenizer
-    pi0_fast_bridge_pad_fft_pt_tokenizer
+    # pi0_fast_bridge_pad_fft_pt_tokenizer
+    # pi0_fast_fractal_fft_pt_tokenizer
+    # pi0_fast_libero
+    pi0_fast_libero_low_mem_finetune
 )
 
 for config in ${CONFIG_NAME[@]}; do
