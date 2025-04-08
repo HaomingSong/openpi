@@ -1,33 +1,34 @@
 """See _CONFIGS for the list of available configs."""
 
 import abc
-from collections.abc import Sequence
 import dataclasses
 import difflib
 import logging
 import pathlib
+from collections.abc import Sequence
 from typing import Any, Protocol, TypeAlias
 
 import etils.epath as epath
 import flax.nnx as nnx
-from typing_extensions import override
 import tyro
+from typing_extensions import override
 
 import openpi.models.model as _model
 import openpi.models.pi0 as pi0
 import openpi.models.pi0_fast as pi0_fast
 import openpi.models.tokenizer as _tokenizer
 import openpi.policies.aloha_policy as aloha_policy
-import openpi.policies.bridge_policy as bridge_policy
 import openpi.policies.bridge_pad_policy as bridge_pad_policy
+import openpi.policies.bridge_policy as bridge_policy
 import openpi.policies.droid_policy as droid_policy
+import openpi.policies.fractal_policy as fractal_policy
+import openpi.policies.franka_policy as franka_policy
 import openpi.policies.libero_policy as libero_policy
 import openpi.shared.download as _download
 import openpi.shared.normalize as _normalize
 import openpi.training.optimizer as _optimizer
 import openpi.training.weight_loaders as weight_loaders
 import openpi.transforms as _transforms
-import openpi.policies.fractal_policy as fractal_policy
 
 ModelType: TypeAlias = _model.ModelType
 # Work around a tyro issue with using nnx.filterlib.Filter directly.
@@ -72,13 +73,19 @@ class DataConfig:
 
     # Used to adopt the inputs from a dataset specific format to a common format
     # which is expected by the data transforms.
-    repack_transforms: _transforms.Group = dataclasses.field(default_factory=_transforms.Group)
+    repack_transforms: _transforms.Group = dataclasses.field(
+        default_factory=_transforms.Group
+    )
     # Data transforms, typically include robot specific transformations. Will be applied
     # before the data is normalized. See `model.Observation` and `model.Actions` to learn about the
     # normalized data.
-    data_transforms: _transforms.Group = dataclasses.field(default_factory=_transforms.Group)
+    data_transforms: _transforms.Group = dataclasses.field(
+        default_factory=_transforms.Group
+    )
     # Model specific transforms. Will be applied after the data is normalized.
-    model_transforms: _transforms.Group = dataclasses.field(default_factory=_transforms.Group)
+    model_transforms: _transforms.Group = dataclasses.field(
+        default_factory=_transforms.Group
+    )
     # If true, will use quantile normalization. Otherwise, normal z-score normalization will be used.
     use_quantile_norm: bool = False
 
@@ -147,7 +154,9 @@ class DataConfigFactory(abc.ABC):
     base_config: tyro.conf.Suppress[DataConfig | None] = None
 
     @abc.abstractmethod
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
         """Create a data config."""
 
     def create_base_config(self, assets_dirs: pathlib.Path) -> DataConfig:
@@ -157,10 +166,14 @@ class DataConfigFactory(abc.ABC):
             self.base_config or DataConfig(),
             repo_id=repo_id,
             asset_id=asset_id,
-            norm_stats=self._load_norm_stats(epath.Path(self.assets.assets_dir or assets_dirs), asset_id),
+            norm_stats=self._load_norm_stats(
+                epath.Path(self.assets.assets_dir or assets_dirs), asset_id
+            ),
         )
 
-    def _load_norm_stats(self, assets_dir: epath.Path, asset_id: str | None) -> dict[str, _transforms.NormStats] | None:
+    def _load_norm_stats(
+        self, assets_dir: epath.Path, asset_id: str | None
+    ) -> dict[str, _transforms.NormStats] | None:
         if asset_id is None:
             return None
         try:
@@ -178,19 +191,27 @@ class FakeDataConfig(DataConfigFactory):
     repo_id: str = "fake"
 
     @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
         return DataConfig(repo_id=self.repo_id)
 
 
 @dataclasses.dataclass(frozen=True)
 class SimpleDataConfig(DataConfigFactory):
     # Factory for the data transforms.
-    data_transforms: tyro.conf.Suppress[GroupFactory] = dataclasses.field(default_factory=GroupFactory)
+    data_transforms: tyro.conf.Suppress[GroupFactory] = dataclasses.field(
+        default_factory=GroupFactory
+    )
     # Factory for the model transforms.
-    model_transforms: tyro.conf.Suppress[GroupFactory] = dataclasses.field(default_factory=ModelTransformFactory)
+    model_transforms: tyro.conf.Suppress[GroupFactory] = dataclasses.field(
+        default_factory=ModelTransformFactory
+    )
 
     @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
         return dataclasses.replace(
             self.create_base_config(assets_dirs),
             data_transforms=self.data_transforms(model_config),
@@ -229,9 +250,15 @@ class LeRobotAlohaDataConfig(DataConfigFactory):
     action_sequence_keys: Sequence[str] = ("action",)
 
     @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
         data_transforms = _transforms.Group(
-            inputs=[aloha_policy.AlohaInputs(action_dim=model_config.action_dim, adapt_to_pi=self.adapt_to_pi)],
+            inputs=[
+                aloha_policy.AlohaInputs(
+                    action_dim=model_config.action_dim, adapt_to_pi=self.adapt_to_pi
+                )
+            ],
             outputs=[aloha_policy.AlohaOutputs(adapt_to_pi=self.adapt_to_pi)],
         )
         if self.use_delta_joint_actions:
@@ -241,7 +268,9 @@ class LeRobotAlohaDataConfig(DataConfigFactory):
                 outputs=[_transforms.AbsoluteActions(delta_action_mask)],
             )
 
-        model_transforms = ModelTransformFactory(default_prompt=self.default_prompt)(model_config)
+        model_transforms = ModelTransformFactory(default_prompt=self.default_prompt)(
+            model_config
+        )
 
         return dataclasses.replace(
             self.create_base_config(assets_dirs),
@@ -255,7 +284,9 @@ class LeRobotAlohaDataConfig(DataConfigFactory):
 @dataclasses.dataclass(frozen=True)
 class LeRobotLiberoDataConfig(DataConfigFactory):
     @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
         # Make inputs look like they come from the Libero environment
         repack_transform = _transforms.Group(
             inputs=[
@@ -274,7 +305,12 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
         # Prepare data for policy training
         # Convert images to uint8 numpy arrays, add masks
         data_transforms = _transforms.Group(
-            inputs=[libero_policy.LiberoInputs(action_dim=model_config.action_dim, model_type=model_config.model_type)],
+            inputs=[
+                libero_policy.LiberoInputs(
+                    action_dim=model_config.action_dim,
+                    model_type=model_config.model_type,
+                )
+            ],
             outputs=[libero_policy.LiberoOutputs()],
         )
         # Use delta actions (not for gripper)
@@ -297,7 +333,6 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
 
 @dataclasses.dataclass(frozen=True)
 class LeRobotBridgeDataConfig(DataConfigFactory):
-
     use_quantile_norm: bool = True
 
     # Action keys that will be used to read the action sequence from the dataset.
@@ -306,7 +341,9 @@ class LeRobotBridgeDataConfig(DataConfigFactory):
     prompt_from_task: bool = True
 
     @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
         # Make inputs look like they come from the Libero environment
         repack_transform = _transforms.Group(
             inputs=[
@@ -327,7 +364,12 @@ class LeRobotBridgeDataConfig(DataConfigFactory):
         # Prepare data for policy training
         # Convert images to uint8 numpy arrays, add masks
         data_transforms = _transforms.Group(
-            inputs=[bridge_policy.BridgeInputs(action_dim=model_config.action_dim, model_type=model_config.model_type)],
+            inputs=[
+                bridge_policy.BridgeInputs(
+                    action_dim=model_config.action_dim,
+                    model_type=model_config.model_type,
+                )
+            ],
             outputs=[bridge_policy.BridgeOutputs()],
         )
 
@@ -343,10 +385,10 @@ class LeRobotBridgeDataConfig(DataConfigFactory):
             action_sequence_keys=self.action_sequence_keys,
             prompt_from_task=self.prompt_from_task,
         )
-        
-@dataclasses.dataclass(frozen=True)
-class LeRobotBridgePadDataConfig(DataConfigFactory):
 
+
+@dataclasses.dataclass(frozen=True)
+class LeRobotFrankaDataConfig(DataConfigFactory):
     use_quantile_norm: bool = True
 
     # Action keys that will be used to read the action sequence from the dataset.
@@ -355,7 +397,63 @@ class LeRobotBridgePadDataConfig(DataConfigFactory):
     prompt_from_task: bool = True
 
     @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
+        # Make inputs look like they come from the Libero environment
+        repack_transform = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "observation/primary_image": "observation.images.third_camera_rgb_image",
+                        "observation/wrist_image": "observation.images.ego_camera_rgb_image",
+                        "observation/state": "observation.state",
+                        "actions": "action",
+                        "prompt": "prompt",
+                    }
+                )
+            ]
+        )
+
+        # Prepare data for policy training
+        # Convert images to uint8 numpy arrays, add masks
+        data_transforms = _transforms.Group(
+            inputs=[
+                franka_policy.FrankaInputs(
+                    action_dim=model_config.action_dim,
+                    model_type=model_config.model_type,
+                )
+            ],
+            outputs=[franka_policy.FrankaOutputs()],
+        )
+
+        # Model transforms include things like tokenizing the prompt and action targets
+        model_transforms = ModelTransformFactory()(model_config)
+
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+            use_quantile_norm=self.use_quantile_norm,
+            action_sequence_keys=self.action_sequence_keys,
+            prompt_from_task=self.prompt_from_task,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class LeRobotBridgePadDataConfig(DataConfigFactory):
+    use_quantile_norm: bool = True
+
+    # Action keys that will be used to read the action sequence from the dataset.
+    action_sequence_keys: Sequence[str] = ("action",)
+
+    prompt_from_task: bool = True
+
+    @override
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
         # Make inputs look like they come from the Libero environment
         repack_transform = _transforms.Group(
             inputs=[
@@ -376,7 +474,12 @@ class LeRobotBridgePadDataConfig(DataConfigFactory):
         # Prepare data for policy training
         # Convert images to uint8 numpy arrays, add masks
         data_transforms = _transforms.Group(
-            inputs=[bridge_pad_policy.BridgePadInputs(action_dim=model_config.action_dim, model_type=model_config.model_type)],
+            inputs=[
+                bridge_pad_policy.BridgePadInputs(
+                    action_dim=model_config.action_dim,
+                    model_type=model_config.model_type,
+                )
+            ],
             outputs=[bridge_pad_policy.BridgePadOutputs()],
         )
 
@@ -392,10 +495,10 @@ class LeRobotBridgePadDataConfig(DataConfigFactory):
             action_sequence_keys=self.action_sequence_keys,
             prompt_from_task=self.prompt_from_task,
         )
-        
+
+
 @dataclasses.dataclass(frozen=True)
 class LeRobotFractalDataConfig(DataConfigFactory):
-
     use_quantile_norm: bool = True
 
     # Action keys that will be used to read the action sequence from the dataset.
@@ -404,7 +507,9 @@ class LeRobotFractalDataConfig(DataConfigFactory):
     prompt_from_task: bool = True
 
     @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+    def create(
+        self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig
+    ) -> DataConfig:
         # Make inputs look like they come from the Libero environment
         repack_transform = _transforms.Group(
             inputs=[
@@ -422,7 +527,12 @@ class LeRobotFractalDataConfig(DataConfigFactory):
         # Prepare data for policy training
         # Convert images to uint8 numpy arrays, add masks
         data_transforms = _transforms.Group(
-            inputs=[fractal_policy.FractalInputs(action_dim=model_config.action_dim, model_type=model_config.model_type)],
+            inputs=[
+                fractal_policy.FractalInputs(
+                    action_dim=model_config.action_dim,
+                    model_type=model_config.model_type,
+                )
+            ],
             outputs=[fractal_policy.FractalOutputs()],
         )
 
@@ -448,6 +558,7 @@ class TrainConfig:
     project_name: str = "openpi"
     # Experiment name. Will be used to name the metadata and checkpoint directories.
     exp_name: str = tyro.MISSING
+    entity: str = tyro.MISSING
 
     # Defines the model config. Some attributes (action_dim, action_horizon, and max_token_len) are shared by all models
     # -- see BaseModelConfig. Specific model implementations (e.g., Pi0Config) inherit from BaseModelConfig and may
@@ -455,14 +566,22 @@ class TrainConfig:
     model: _model.BaseModelConfig = dataclasses.field(default_factory=pi0.Pi0Config)
 
     # A weight loader can optionally load (possibly partial) weights from disk after the model is initialized.
-    weight_loader: weight_loaders.WeightLoader = dataclasses.field(default_factory=weight_loaders.NoOpWeightLoader)
+    weight_loader: weight_loaders.WeightLoader = dataclasses.field(
+        default_factory=weight_loaders.NoOpWeightLoader
+    )
 
-    lr_schedule: _optimizer.LRScheduleConfig = dataclasses.field(default_factory=_optimizer.CosineDecaySchedule)
-    optimizer: _optimizer.OptimizerConfig = dataclasses.field(default_factory=_optimizer.AdamW)
+    lr_schedule: _optimizer.LRScheduleConfig = dataclasses.field(
+        default_factory=_optimizer.CosineDecaySchedule
+    )
+    optimizer: _optimizer.OptimizerConfig = dataclasses.field(
+        default_factory=_optimizer.AdamW
+    )
     ema_decay: float | None = 0.99
 
     # Specifies which weights should be frozen.
-    freeze_filter: tyro.conf.Suppress[Filter] = dataclasses.field(default_factory=nnx.Nothing)
+    freeze_filter: tyro.conf.Suppress[Filter] = dataclasses.field(
+        default_factory=nnx.Nothing
+    )
 
     # Determines the data to be trained on.
     data: DataConfigFactory = dataclasses.field(default_factory=FakeDataConfig)
@@ -516,7 +635,9 @@ class TrainConfig:
         """Get the checkpoint directory for this config."""
         if not self.exp_name:
             raise ValueError("--exp_name must be set")
-        return (pathlib.Path(self.checkpoint_base_dir) / self.name / self.exp_name).resolve()
+        return (
+            pathlib.Path(self.checkpoint_base_dir) / self.name / self.exp_name
+        ).resolve()
 
     @property
     def trainable_filter(self) -> nnx.filterlib.Filter:
@@ -579,7 +700,11 @@ _CONFIGS = [
         data=SimpleDataConfig(
             assets=AssetsConfig(asset_id="droid"),
             data_transforms=lambda model: _transforms.Group(
-                inputs=[droid_policy.DroidInputs(action_dim=model.action_dim, model_type=ModelType.PI0_FAST)],
+                inputs=[
+                    droid_policy.DroidInputs(
+                        action_dim=model.action_dim, model_type=ModelType.PI0_FAST
+                    )
+                ],
                 outputs=[droid_policy.DroidOutputs()],
             ),
             base_config=DataConfig(
@@ -600,12 +725,16 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_base/params"
+        ),
         num_train_steps=30_000,
     ),
     TrainConfig(
         name="pi0_libero_low_mem_finetune",
-        model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+        model=pi0.Pi0Config(
+            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+        ),
         data=LeRobotLiberoDataConfig(
             repo_id="physical-intelligence/libero",
             base_config=DataConfig(
@@ -613,7 +742,9 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_base/params"
+        ),
         num_train_steps=30_000,
         freeze_filter=pi0.Pi0Config(
             paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
@@ -622,7 +753,9 @@ _CONFIGS = [
     ),
     TrainConfig(
         name="pi0_fast_libero",
-        model=pi0_fast.Pi0FASTConfig(action_dim=7, action_horizon=10, max_token_len=180),
+        model=pi0_fast.Pi0FASTConfig(
+            action_dim=7, action_horizon=10, max_token_len=180
+        ),
         data=LeRobotLiberoDataConfig(
             repo_id="physical-intelligence/libero",
             base_config=DataConfig(
@@ -630,7 +763,9 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
         num_train_steps=30_000,
     ),
     TrainConfig(
@@ -643,10 +778,15 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
         num_train_steps=30_000,
         freeze_filter=pi0_fast.Pi0FASTConfig(
-            action_dim=7, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
+            action_dim=7,
+            action_horizon=10,
+            max_token_len=180,
+            paligemma_variant="gemma_2b_lora",
         ).get_freeze_filter(),
         ema_decay=None,
     ),
@@ -684,7 +824,9 @@ _CONFIGS = [
                 local_files_only=False,  # Set to True for local-only datasets.
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_base/params"
+        ),
         num_train_steps=20_000,
     ),
     # This config is used to demonstrate how to train on a simple simulated environment.
@@ -696,7 +838,9 @@ _CONFIGS = [
             default_prompt="Transfer cube",
             use_delta_joint_actions=False,
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_base/params"
+        ),
         num_train_steps=20_000,
     ),
     #
@@ -712,13 +856,17 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_base/params"
+        ),
         num_train_steps=30_000,
-        num_workers=8
+        num_workers=8,
     ),
     TrainConfig(
         name="pi0_bridge_low_mem_finetune",
-        model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+        model=pi0.Pi0Config(
+            paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
+        ),
         data=LeRobotBridgeDataConfig(
             repo_id="local/bridge_lerobot",
             base_config=DataConfig(
@@ -726,17 +874,21 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_base/params"
+        ),
         num_train_steps=30_000,
         freeze_filter=pi0.Pi0Config(
             paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"
         ).get_freeze_filter(),
         ema_decay=None,
-        num_workers=8
+        num_workers=8,
     ),
     TrainConfig(
         name="pi0_fast_bridge_fft_pt_tokenizer",
-        model=pi0_fast.Pi0FASTConfig(action_dim=7, action_horizon=10, max_token_len=180),
+        model=pi0_fast.Pi0FASTConfig(
+            action_dim=7, action_horizon=10, max_token_len=180
+        ),
         data=LeRobotBridgeDataConfig(
             repo_id="local/bridge_lerobot",
             base_config=DataConfig(
@@ -744,13 +896,17 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
         num_train_steps=30_000,
-        num_workers=16
+        num_workers=16,
     ),
     TrainConfig(
         name="pi0_fast_fractal_fft_pt_tokenizer",
-        model=pi0_fast.Pi0FASTConfig(action_dim=7, action_horizon=10, max_token_len=180),
+        model=pi0_fast.Pi0FASTConfig(
+            action_dim=7, action_horizon=10, max_token_len=180
+        ),
         data=LeRobotFractalDataConfig(
             repo_id="local/fractal_lerobot",
             base_config=DataConfig(
@@ -758,15 +914,20 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
         num_train_steps=30_000,
-        num_workers=16
+        num_workers=16,
     ),
     TrainConfig(
         name="pi0_fast_bridge_lora_pt_tokenizer",
         model=pi0_fast.Pi0FASTConfig(
-            action_dim=7, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
-            ),
+            action_dim=7,
+            action_horizon=10,
+            max_token_len=180,
+            paligemma_variant="gemma_2b_lora",
+        ),
         data=LeRobotBridgeDataConfig(
             repo_id="local/bridge_lerobot",
             base_config=DataConfig(
@@ -774,17 +935,24 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
         num_train_steps=30_000,
         freeze_filter=pi0_fast.Pi0FASTConfig(
-            action_dim=7, action_horizon=10, max_token_len=350, paligemma_variant="gemma_2b_lora"
+            action_dim=7,
+            action_horizon=10,
+            max_token_len=350,
+            paligemma_variant="gemma_2b_lora",
         ).get_freeze_filter(),
         ema_decay=None,
         num_workers=16,
     ),
     TrainConfig(
         name="pi0_fast_bridge_pad_fft_pt_tokenizer",
-        model=pi0_fast.Pi0FASTConfig(action_dim=7, action_horizon=10, max_token_len=180),
+        model=pi0_fast.Pi0FASTConfig(
+            action_dim=7, action_horizon=10, max_token_len=180
+        ),
         data=LeRobotBridgePadDataConfig(
             repo_id="local/bridge_lerobot",
             base_config=DataConfig(
@@ -792,15 +960,20 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
         num_train_steps=30_000,
-        num_workers=16
+        num_workers=16,
     ),
     TrainConfig(
         name="pi0_fast_bridge_pad_lora_pt_tokenizer",
         model=pi0_fast.Pi0FASTConfig(
-            action_dim=7, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
-            ),
+            action_dim=7,
+            action_horizon=10,
+            max_token_len=180,
+            paligemma_variant="gemma_2b_lora",
+        ),
         data=LeRobotBridgePadDataConfig(
             repo_id="local/bridge_lerobot",
             base_config=DataConfig(
@@ -808,10 +981,43 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
         num_train_steps=30_000,
         freeze_filter=pi0_fast.Pi0FASTConfig(
-            action_dim=7, action_horizon=10, max_token_len=350, paligemma_variant="gemma_2b_lora"
+            action_dim=7,
+            action_horizon=10,
+            max_token_len=350,
+            paligemma_variant="gemma_2b_lora",
+        ).get_freeze_filter(),
+        ema_decay=None,
+        num_workers=16,
+    ),
+    TrainConfig(
+        name="pi0_fast_maketea_pad_lora_pt_tokenizer",
+        model=pi0_fast.Pi0FASTConfig(
+            action_dim=7,
+            action_horizon=10,
+            max_token_len=180,
+            paligemma_variant="gemma_2b_lora",
+        ),
+        data=LeRobotFrankaDataConfig(
+            repo_id="local/make_tea_lerobot",
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
+        num_train_steps=30_000,
+        freeze_filter=pi0_fast.Pi0FASTConfig(
+            action_dim=7,
+            action_horizon=10,
+            max_token_len=350,
+            paligemma_variant="gemma_2b_lora",
         ).get_freeze_filter(),
         ema_decay=None,
         num_workers=16,
@@ -826,9 +1032,11 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
         num_train_steps=30_000,
-        num_workers=0
+        num_workers=0,
     ),
     TrainConfig(
         name="pi0_fast_bridge_low_mem_finetune_ah5",
@@ -840,7 +1048,9 @@ _CONFIGS = [
                 prompt_from_task=True,
             ),
         ),
-        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "s3://openpi-assets/checkpoints/pi0_fast_base/params"
+        ),
         num_train_steps=30_000,
         freeze_filter=pi0_fast.Pi0FASTConfig(
             action_horizon=5, paligemma_variant="gemma_2b_lora"
@@ -867,7 +1077,9 @@ _CONFIGS = [
         data=FakeDataConfig(),
         batch_size=2,
         model=pi0.Pi0Config(paligemma_variant="dummy", action_expert_variant="dummy"),
-        weight_loader=weight_loaders.CheckpointWeightLoader("./checkpoints/debug/debug/9/params"),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "./checkpoints/debug/debug/9/params"
+        ),
         overwrite=True,
         exp_name="debug",
         num_train_steps=10,
@@ -881,13 +1093,17 @@ _CONFIGS_DICT = {config.name: config for config in _CONFIGS}
 
 
 def cli() -> TrainConfig:
-    return tyro.extras.overridable_config_cli({k: (k, v) for k, v in _CONFIGS_DICT.items()})
+    return tyro.extras.overridable_config_cli(
+        {k: (k, v) for k, v in _CONFIGS_DICT.items()}
+    )
 
 
 def get_config(config_name: str) -> TrainConfig:
     """Get a config by name."""
     if config_name not in _CONFIGS_DICT:
-        closest = difflib.get_close_matches(config_name, _CONFIGS_DICT.keys(), n=1, cutoff=0.0)
+        closest = difflib.get_close_matches(
+            config_name, _CONFIGS_DICT.keys(), n=1, cutoff=0.0
+        )
         closest_str = f" Did you mean '{closest[0]}'? " if closest else ""
         raise ValueError(f"Config '{config_name}' not found.{closest_str}")
 
