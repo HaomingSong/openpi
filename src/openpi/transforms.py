@@ -1,3 +1,4 @@
+import bisect
 from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 import re
@@ -306,6 +307,26 @@ class PromptFromLeRobotTask(DataTransformFn):
         task_index = int(data["task_index"])
         if (prompt := self.tasks.get(task_index)) is None:
             raise ValueError(f"{task_index=} not found in task mapping: {self.tasks}")
+
+        return {**data, "prompt": prompt}
+
+
+@dataclasses.dataclass(frozen=True)
+class PromptFromFrame(DataTransformFn):
+    """Extracts a prompt from the current frame."""
+
+    # Contains the frame separation information.
+    episodes_meta: list
+    separations: dict[int, str]
+
+    def __call__(self, data: DataDict) -> DataDict:
+        eps_idx = int(data["episode_index"])
+        frame_idx = int(data["frame_index"])
+        episode_separation = self.separations[eps_idx]
+
+        prompt_idx = bisect.bisect_right(episode_separation, frame_idx)
+        prompt_idx = min(prompt_idx, len(episode_separation) - 1)
+        prompt = self.episodes_meta[eps_idx]["action_config"][prompt_idx]["action_text"]
 
         return {**data, "prompt": prompt}
 

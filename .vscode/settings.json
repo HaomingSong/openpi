@@ -7,5 +7,29 @@
         "src"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "python.analysis.exclude": [
+        "**/data/**",
+        "**/checkpoints/**",
+        "**/assets/**",
+        "**/wandb/**",
+        "**/tmp/**",
+        "**/.venv/**",
+        "**/.pytest_cache/**",
+        "**/.ruff_cache/**",
+        "**/third_party/**",
+        "**/dev/**"
+    ],
+    "cursorpyright.analysis.exclude": [
+        "**/data/**",
+        "**/checkpoints/**",
+        "**/assets/**",
+        "**/wandb/**",
+        "**/tmp/**",
+        "**/.venv/**",
+        "**/.pytest_cache/**",
+        "**/.ruff_cache/**",
+        "**/third_party/**",
+        "**/dev/**"
+    ]
 }

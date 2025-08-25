@@ -81,6 +81,17 @@ class FakeDataset(Dataset):
         return self._num_samples
 
 
+def calculate_prompt_seperation(dataset_meta):
+    """calculate the start and end indices of each episode"""
+    separations = {}
+    try:
+        for ep in dataset_meta.episodes:
+            separations[ep["episode_index"]] = [item["end_frame"] for item in ep["action_config"]]
+    except Exception as e:
+        print(f"[warn] {e}")
+    return separations
+
+
 def create_dataset(data_config: _config.DataConfig, model_config: _model.BaseModelConfig) -> Dataset:
     """Create a dataset for training."""
     repo_id = data_config.repo_id
@@ -98,8 +109,13 @@ def create_dataset(data_config: _config.DataConfig, model_config: _model.BaseMod
         },
         local_files_only=data_config.local_files_only,
     )
+    if data_config.prompt_from_episode:
+        if not dataset_meta.episodes:
+            raise ValueError("No episodes found in the dataset metadata.")
+        episode_separations = calculate_prompt_seperation(dataset_meta)
+        dataset = TransformedDataset(dataset, [_transforms.PromptFromFrame(dataset_meta.episodes, episode_separations)])
 
-    if data_config.prompt_from_task:
+    elif data_config.prompt_from_task:
         dataset = TransformedDataset(dataset, [_transforms.PromptFromLeRobotTask(dataset_meta.tasks)])
 
     return dataset
