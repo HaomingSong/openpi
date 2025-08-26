@@ -21,6 +21,7 @@ import openpi.policies.agibot_policy_368 as agibot_policy_368
 import openpi.policies.agibot_policy_1084 as agibot_policy_1084
 import openpi.policies.agibot_policy_2246 as agibot_policy_2246
 import openpi.policies.agibot_policy_2787 as agibot_policy_2787
+import openpi.policies.so100_policy as so100_policy
 import openpi.policies.aloha_policy as aloha_policy
 import openpi.policies.bridge_pad_policy as bridge_pad_policy
 import openpi.policies.bridge_policy as bridge_policy
@@ -66,6 +67,7 @@ class AssetsConfig:
     asset_id: str | None = None
 
 
+
 @dataclasses.dataclass(frozen=True)
 class DataConfig:
     # LeRobot repo id. If None, fake data will be created.
@@ -100,6 +102,11 @@ class DataConfig:
 
     # If true, will disable syncing the dataset from the Hugging Face Hub. Allows training on local-only datasets.
     local_files_only: bool = False
+
+@dataclasses.dataclass(frozen=True)
+class MultiDataConfig:
+    # List of DataConfig
+    data_configs: Sequence[DataConfig]
 
 
 class GroupFactory(Protocol):
@@ -144,7 +151,6 @@ class ModelTransformFactory(GroupFactory):
                     ],
                 )
 
-
 @dataclasses.dataclass(frozen=True)
 class DataConfigFactory(abc.ABC):
     # The LeRobot repo id.
@@ -179,6 +185,50 @@ class DataConfigFactory(abc.ABC):
         except FileNotFoundError:
             logging.info(f"Norm stats not found in {data_assets_dir}, skipping.")
         return None
+
+@dataclasses.dataclass(frozen=True)
+class MultiDataConfigFactory(abc.ABC):
+    repo_ids: Sequence[str] = tyro.MISSING
+    assets: Sequence[AssetsConfig] = tyro.MISSING
+    base_config: tyro.conf.Suppress[MultiDataConfig | None] = None
+
+    @abc.abstractmethod
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> MultiDataConfig:
+        """Create a multi data config."""
+
+    def create_base_config(self, assets_dirs: Sequence[pathlib.Path] | pathlib.Path) -> MultiDataConfig:
+        
+        repo_ids = self.repo_ids if self.repo_ids is not tyro.MISSING else None
+        asset_ids = [asset.asset_id for asset in self.assets] if self.assets is not tyro.MISSING else repo_ids
+        data_num = len(repo_ids)
+        assets_dirs = [assets_dirs] * data_num if isinstance(assets_dirs, pathlib.Path) else assets_dirs
+        assert len(repo_ids) == len(asset_ids) == len(assets_dirs), "repo_ids, assets and assets_dirs must have the same length"
+
+        return dataclasses.replace(
+            self.base_config or MultiDataConfig(),
+            data_configs=[
+                dataclasses.replace(
+                    DataConfig(),
+                    repo_id=repo_ids[idx],
+                    asset_id=asset_ids[idx],
+                    norm_stats=self._load_norm_stats(epath.Path(self.assets[idx].assets_dir or assets_dirs[idx]), asset_ids[idx]),
+                )
+                for idx in range(data_num)
+            ],
+        )
+
+    def _load_norm_stats(self, assets_dir: epath.Path, asset_id: str | None) -> dict[str, _transforms.NormStats] | None:
+        if asset_id is None:
+            return None
+        try:
+            data_assets_dir = str(assets_dir / asset_id)
+            norm_stats = _normalize.load(_download.maybe_download(data_assets_dir))
+            logging.info(f"Loaded norm stats from {data_assets_dir}")
+            return norm_stats
+        except FileNotFoundError:
+            logging.info(f"Norm stats not found in {data_assets_dir}, skipping.")
+        return None
+
 
 
 @dataclasses.dataclass(frozen=True)
@@ -604,6 +654,107 @@ class LeRobotAgibot2787DataConfig(DataConfigFactory):
             prompt_from_task=self.prompt_from_task,
         )
 
+@dataclasses.dataclass(frozen=True)
+class LeRobotMultiSo100DataConfig(MultiDataConfigFactory):
+    use_quantile_norm: bool = True
+
+    # Action keys that will be used to read the action sequence from the dataset.
+    action_sequence_keys: Sequence[str] = ("action",)
+
+    prompt_from_task: bool = True
+
+    @override
+    def create(self, assets_dirs: Sequence[pathlib.Path] | pathlib.Path, model_config: _model.BaseModelConfig) -> MultiDataConfig:
+        # Make inputs look like they come from the Libero environment
+        repack_transform = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "observation/primary_image": "observation.images.base",
+                        "observation/wrist_image": "observation.images.wirst",
+                        "observation/state": "observation.state",
+                        "actions": "action",
+                        "prompt": "prompt",
+                    }
+                )
+            ]
+        )
+
+        # Prepare data for policy training
+        # Convert images to uint8 numpy arrays, add masks
+        data_transforms = _transforms.Group(
+            inputs=[
+                so100_policy.So100Inputs(
+                    action_dim=model_config.action_dim,
+                    model_type=model_config.model_type,
+                )
+            ],
+            outputs=[so100_policy.So100Outputs()],
+        )
+
+        # Model transforms include things like tokenizing the prompt and action targets
+        model_transforms = ModelTransformFactory()(model_config)
+
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+            use_quantile_norm=self.use_quantile_norm,
+            action_sequence_keys=self.action_sequence_keys,
+            prompt_from_task=self.prompt_from_task,
+        )
+
+@dataclasses.dataclass(frozen=True)
+class LeRobotSo100DataConfig(DataConfigFactory):
+    use_quantile_norm: bool = True
+
+    # Action keys that will be used to read the action sequence from the dataset.
+    action_sequence_keys: Sequence[str] = ("action",)
+
+    prompt_from_task: bool = True
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        # Make inputs look like they come from the Libero environment
+        repack_transform = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "observation/primary_image": "observation.images.base",
+                        "observation/wrist_image": "observation.images.wirst",
+                        "observation/state": "observation.state",
+                        "actions": "action",
+                        "prompt": "prompt",
+                    }
+                )
+            ]
+        )
+
+        # Prepare data for policy training
+        # Convert images to uint8 numpy arrays, add masks
+        data_transforms = _transforms.Group(
+            inputs=[
+                so100_policy.So100Inputs(
+                    action_dim=model_config.action_dim,
+                    model_type=model_config.model_type,
+                )
+            ],
+            outputs=[so100_policy.So100Outputs()],
+        )
+
+        # Model transforms include things like tokenizing the prompt and action targets
+        model_transforms = ModelTransformFactory()(model_config)
+
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+            use_quantile_norm=self.use_quantile_norm,
+            action_sequence_keys=self.action_sequence_keys,
+            prompt_from_task=self.prompt_from_task,
+        )
 
 @dataclasses.dataclass(frozen=True)
 class LeRobotFrankaDataConfig(DataConfigFactory):
@@ -1089,6 +1240,20 @@ _CONFIGS = [
         model=pi0.Pi0Config(),
         data=LeRobotBridgePadDataConfig(
             repo_id="local/bridge_lerobot",
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_base/params"),
+        num_train_steps=30_000,
+        num_workers=8,
+    ),
+    TrainConfig(
+        name="pi0_so100_fft_tic_2_1",
+        model=pi0.Pi0Config(),
+        data=LeRobotSo100DataConfig(
+            repo_id="SO100/tic_2_1",
             base_config=DataConfig(
                 local_files_only=True,  # Set to True for local-only datasets.
                 prompt_from_task=True,

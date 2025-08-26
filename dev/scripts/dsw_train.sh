@@ -1,4 +1,4 @@
-debug=true
+
 if [[ $debug == true ]]; then
     wandb_enable=""
     export XLA_PYTHON_CLIENT_PREALLOCATE=false
@@ -41,13 +41,15 @@ CONFIG_NAME=(
     # pi0_three_cube_red_raw_fft
     # pi0_three_cube_green_fft
     # pi0_three_cube_green_raw_fft
-    pi0_fast_agibot_2787_subtask
+    # pi0_fast_agibot_2787_subtask
+    pi0_so100_fft_tic_2_1
 )
 
 export HOME=/cpfs01/shared/optimal/songhaoming
 export OPENPI_DATA_HOME=/cpfs01/shared/optimal/vla_next/openpi_hm/data/OPENPI_DATA_HOME
 # export LEROBOT_HOME=/cpfs01/shared/optimal/vla_next/openpi_hm/data/LEROBOT_HOME
-export LEROBOT_HOME=/oss/vla_next/DATA/AgiBotWorld-SFT-LeRobot
+# export LEROBOT_HOME=/oss/vla_next/DATA/AgiBotWorld-SFT-LeRobot
+export LEROBOT_HOME=/cpfs01/shared/optimal/vla_next/DATA
 # export LEROBOT_HOME=/oss/vla_next/DATA/AgiBotWorld-Beta-Franka-LeRobot
 
 wandb_enable=${wandb_enable:+"--wandb_enabled"}

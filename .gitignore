@@ -170,3 +170,5 @@ cython_debug/
 pyproject.toml
 uv.lock
 test
+.cursor/
+*.tar

@@ -18,14 +18,16 @@ configs=(
     # pi0_three_cube_green_fft
     # pi0_three_cube_green_raw_fft
 
-    pi0_fast_agibot_368_2
+    # pi0_fast_agibot_368_2
+    pi0_so100_fft_tic_2_1
 )
 
 export HOME=/cpfs01/shared/optimal/songhaoming
 export OPENPI_DATA_HOME=/cpfs01/shared/optimal/vla_next/openpi_hm/data/OPENPI_DATA_HOME
 # export LEROBOT_HOME=/cpfs01/shared/optimal/vla_next/openpi_hm/data/LEROBOT_HOME
 # export LEROBOT_HOME=/oss/vla_next/DATA/AgiBotWorld-Beta-Franka-LeRobot
-export LEROBOT_HOME=/oss/vla_next/DATA/AgiBotWorld-SFT-LeRobot
+# export LEROBOT_HOME=/oss/vla_next/DATA/AgiBotWorld-SFT-LeRobot
+export LEROBOT_HOME=/cpfs01/shared/optimal/vla_next/DATA
 
 export CUDA_VISIBLE_DEVICES=0
 for config in ${configs[@]}; do
