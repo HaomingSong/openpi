@@ -590,6 +590,20 @@ _CONFIGS = [
         num_workers=0,
     ),
     TrainConfig(
+        name="pi0_bridge_fft",
+        model=pi0.Pi0Config(),
+        data=LeRobotBridgePadDataConfig(
+            repo_id="local/bridge_lerobot",
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_base/params"),
+        num_train_steps=30_000,
+        num_workers=8,
+    ),
+    TrainConfig(
         name="pi0_bridge_lora",
         model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
         data=LeRobotBridgePadDataConfig(
